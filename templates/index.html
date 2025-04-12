@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rock Paper Scissors</title>
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #6a11cb, #2575fc);
+      background-size: cover;
+      background-attachment: fixed;
+      color: white;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    #container {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 20px; /* Reduced padding for smaller screens */
+      border-radius: 15px;
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      max-width: 90%; /* Ensure responsiveness */
+      width: 400px; /* Base width */
+    }
+
+    h1 {
+      margin-bottom: 20px; /* Reduced margin for smaller screens */
+      font-size: 2em; /* Reduced font size for smaller screens */
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    #status {
+      font-size: 1em; /* Reduced font size for smaller screens */
+      margin-bottom: 15px; /* Reduced margin for smaller screens */
+      animation: fadeIn 1s ease-in-out;
+    }
+
+    #timer {
+      position: absolute;
+      top: 10px; /* Adjusted position for smaller screens */
+      right: 10px; /* Adjusted position for smaller screens */
+      font-size: 1.2em; /* Reduced font size for smaller screens */
+      display: none;
+      animation: fadeIn 1s ease-in-out;
+    }
+
+    #game {
+      display: none;
+    }
+
+    #game p {
+      font-size: 1em; /* Reduced font size for smaller screens */
+      margin-bottom: 15px; /* Reduced margin for smaller screens */
+    }
+
+    #game button {
+      padding: 12px 25px; /* Reduced padding for smaller screens */
+      margin: 8px; /* Reduced margin for smaller screens */
+      font-size: 1em; /* Reduced font size for smaller screens */
+      border: none;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      cursor: pointer;
+      transition: transform 0.2s ease-in-out, background 0.3s ease;
+    }
+
+    #game button:hover {
+      transform: scale(1.05);
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    #result {
+      display: none;
+      animation: fadeIn 1s ease-in-out;
+    }
+
+    #result p {
+      font-size: 1.2em; /* Reduced font size for smaller screens */
+      margin-bottom: 15px; /* Reduced margin for smaller screens */
+    }
+
+    #result button {
+      padding: 12px 25px; /* Reduced padding for smaller screens */
+      font-size: 1em; /* Reduced font size for smaller screens */
+      border: none;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      cursor: pointer;
+      transition: transform 0.2s ease-in-out, background 0.3s ease;
+    }
+
+    #result button:hover {
+      transform: scale(1.05);
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <h1>Rock Paper Scissors</h1>
+    <div id="status">Connecting...</div>
+    <div id="timer"> <span id="time">10</span>s</div>
+    <div id="game">
+      <p>Choose:</p>
+      <button onclick="makeChoice('rock')">✊</button>
+      <button onclick="makeChoice('paper')">✋</button>
+      <button onclick="makeChoice('scissors')">✌️</button>
+    </div>
+    <div id="result">
+      <p id="outcome"></p>
+      <button onclick="restart()">Restart Game</button>
+    </div>
+  </div>
+
+  <script>
+    const socket = io();
+    let countdown;
+    let timeLeft = 10;
+    let hasChosen = false;
+    let start_flag = false;
+    socket.emit('join');
+
+    socket.on('waiting', () => {
+      document.getElementById('status').innerText = "Waiting for another player...";
+    });
+
+    socket.on('start', () => {
+      document.getElementById('status').innerText = "Game Started!";
+      document.getElementById('game').style.display = "block";
+      document.getElementById('result').style.display = "none";
+      document.getElementById('timer').style.display = "block";
+      hasChosen = false;
+      timeLeft = 10
+      if (start_flag == false){
+        startTimer();
+        start_flag = true;
+      }
+      
+    });
+
+    function makeChoice(choice) {
+      if (hasChosen) return;
+      hasChosen = true;
+      clearInterval(countdown);
+      socket.emit('choice', { choice });
+      document.getElementById('status').innerText = "Waiting for opponent's choice...";
+      document.getElementById('game').style.display = "none";
+      document.getElementById('timer').style.display = "none";
+      start_flag = false;
+    }
+
+    function startTimer() {
+      timeLeft = 10;
+      document.getElementById('time').innerText = timeLeft;
+
+      countdown = setInterval(() => {
+        timeLeft--;
+        document.getElementById('time').innerText = timeLeft;
+
+        if (timeLeft <= 0) {
+          clearInterval(countdown);
+          if (!hasChosen) {
+            const choices = ['rock', 'paper', 'scissors'];
+            const randomChoice = choices[Math.floor(Math.random() * choices.length)];
+            start_flag = false;
+            makeChoice(randomChoice);
+          }
+        }
+      }, 1000);
+    }
+
+    socket.on('result', data => {
+      const outcome = data[socket.id];
+      const emoji1 = data.choice1 === 'rock' ? '✊' : data.choice1 === 'paper' ? '✋' : '✌️';
+      const emoji2 = data.choice2 === 'rock' ? '✊' : data.choice2 === 'paper' ? '✋' : '✌️';
+      document.getElementById('outcome').innerText = `You chose ${emoji1}, opponent chose ${emoji2}. You ${outcome}!`;
+      document.getElementById('result').style.display = "block";
+    });
+
+    function restart() {
+      socket.emit('restart');
+      document.getElementById('status').innerText = "Waiting for other player to restart...";
+      document.getElementById('result').style.display = "none";
+    }
+
+    socket.on('full', () => {
+      document.getElementById('status').innerText = "Room is full. Try again later.";
+    });
+  </script>
+</body>
+</html>
