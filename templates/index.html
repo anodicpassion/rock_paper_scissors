@@ -53,6 +53,16 @@
       display: none;
       animation: fadeIn 1s ease-in-out;
     }
+    
+    #score-board {
+      
+      position: absolute;
+      top: 10px; /* Adjusted position for smaller screens */
+      left: 10px; /* Adjusted position for smaller screens */
+      font-size: 1.2em; /* Reduced font size for smaller screens */
+      /* display: none; */
+      animation: fadeIn 1s ease-in-out;
+    }
 
     #game {
       display: none;
@@ -85,12 +95,16 @@
       animation: fadeIn 1s ease-in-out;
     }
 
+    #restart_div {
+      display: none;
+      animation: fadeIn 1s ease-in-out;
+    }
     #result p {
       font-size: 1.2em; /* Reduced font size for smaller screens */
       margin-bottom: 15px; /* Reduced margin for smaller screens */
     }
 
-    #result button {
+    #restart_div button {
       padding: 12px 25px; /* Reduced padding for smaller screens */
       font-size: 1em; /* Reduced font size for smaller screens */
       border: none;
@@ -101,7 +115,7 @@
       transition: transform 0.2s ease-in-out, background 0.3s ease;
     }
 
-    #result button:hover {
+    #restart_div button:hover {
       transform: scale(1.05);
       background: rgba(255, 255, 255, 0.3);
     }
@@ -116,6 +130,7 @@
   <div id="container">
     <h1>Rock Paper Scissors</h1>
     <div id="status">Connecting...</div>
+    <div id="score-board"> <span id="score">0</span> / 5</div>
     <div id="timer"> <span id="time">10</span>s</div>
     <div id="game">
       <p>Choose:</p>
@@ -125,7 +140,14 @@
     </div>
     <div id="result">
       <p id="outcome"></p>
+      
+    </div>
+    <div id="finalresult" style="display: none;">
+      <h1><p id="finaloutcome"></p></h1>
+    </div>
+    <div class="restart_div" id="restart_div">
       <button onclick="restart()">Restart Game</button>
+
     </div>
   </div>
 
@@ -135,6 +157,8 @@
     let timeLeft = 10;
     let hasChosen = false;
     let start_flag = false;
+    let your_choice = "";
+    let score = 0;
     socket.emit('join');
 
     socket.on('waiting', () => {
@@ -142,12 +166,62 @@
     });
 
     socket.on('start', () => {
+      document.getElementById("finalresult").style.display = "none";
+      document.getElementById("restart_div").style.display = "none";
+      document.getElementById('status').innerText = "Game Started!";
+      document.getElementById('game').style.display = "block";
+      document.getElementById('result').style.display = "none";
+      document.getElementById('timer').style.display = "block";
+      document.getElementById('status').style.display = "block";
+      hasChosen = false;
+      timeLeft = 10
+      score = 0
+      document.getElementById("score").innerText = score;
+      if (start_flag == false){
+        startTimer();
+        start_flag = true;
+      }
+      
+    });
+
+    socket.on('loose', () => {
+      
+      if (score == 5){
+        // alert("Winner");
+        document.getElementById('result').style.display = "none";
+        document.getElementById('status').style.display = "none";
+
+        document.getElementById('game').style.display = "none";
+        document.getElementById('timer').style.display = "none";
+
+        document.getElementById("finaloutcome").innerText = "Winner! ✨"
+        document.getElementById("finalresult").style.display = "block";
+        document.getElementById("restart_div").style.display = "block";
+        
+      }
+      else{
+        // alert("Looser");
+        document.getElementById('result').style.display = "none";
+        document.getElementById('status').style.display = "none";
+
+        document.getElementById('game').style.display = "none";
+        document.getElementById('timer').style.display = "none";
+
+        document.getElementById("finaloutcome").innerText = "Game Over"
+        document.getElementById("finalresult").style.display = "block";
+        document.getElementById("restart_div").style.display = "block";
+      }      
+    });
+
+    socket.on('soft_start', () => {
       document.getElementById('status').innerText = "Game Started!";
       document.getElementById('game').style.display = "block";
       document.getElementById('result').style.display = "none";
       document.getElementById('timer').style.display = "block";
       hasChosen = false;
       timeLeft = 10
+      // score = 0
+      document.getElementById("score").innerText = score;
       if (start_flag == false){
         startTimer();
         start_flag = true;
@@ -158,6 +232,8 @@
     function makeChoice(choice) {
       if (hasChosen) return;
       hasChosen = true;
+      your_choice = choice;
+      
       clearInterval(countdown);
       socket.emit('choice', { choice });
       document.getElementById('status').innerText = "Waiting for opponent's choice...";
@@ -188,16 +264,60 @@
 
     socket.on('result', data => {
       const outcome = data[socket.id];
+      if (your_choice != data.choice1){
+        var temp = data.choice1;
+        data.choice1 = your_choice;
+        data.choice2 = temp;
+      }
+      
       const emoji1 = data.choice1 === 'rock' ? '✊' : data.choice1 === 'paper' ? '✋' : '✌️';
       const emoji2 = data.choice2 === 'rock' ? '✊' : data.choice2 === 'paper' ? '✋' : '✌️';
-      document.getElementById('outcome').innerText = `You chose ${emoji1}, opponent chose ${emoji2}. You ${outcome}!`;
-      document.getElementById('result').style.display = "block";
+      
+
+      
+      if (outcome == "Win"){
+        score = score + 1;
+      }
+      if (score == 5){
+        
+        // document.getElementById("final-result").display = "block";
+        var temp = "1"
+        socket.emit("game_end", { temp });
+        console.log('score:')
+        console.log(data.score)
+        document.getElementById("score").innerText = score;
+        document.getElementById('outcome').innerText = `You chose ${emoji1}, opponent chose ${emoji2}. You ${outcome}!`;
+        document.getElementById('result').style.display = "block";
+      
+        
+      }
+      else{
+        console.log('score:')
+        console.log(data.score)
+        document.getElementById("score").innerText = score;
+
+        document.getElementById('outcome').innerText = `You chose ${emoji1}, opponent chose ${emoji2}. You ${outcome}!`;
+        document.getElementById('result').style.display = "block";
+        setTimeout(function(){
+          soft_restart();
+        }, 2000);
+      }
+     
+
     });
 
-    function restart() {
-      socket.emit('restart');
+    function soft_restart() {
+      socket.emit('soft_restart');
       document.getElementById('status').innerText = "Waiting for other player to restart...";
       document.getElementById('result').style.display = "none";
+    
+    }
+
+    function restart() {
+      window.location.reload()
+      // socket.emit('restart');
+      // document.getElementById('status').innerText = "Waiting for other player to restart...";
+      // document.getElementById('result').style.display = "none";
     }
 
     socket.on('full', () => {
